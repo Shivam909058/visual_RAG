@@ -53,12 +53,12 @@ with st.sidebar:
     st.title("Model Settings")
     model_choice = st.radio(
         "Choose Vision Model",
-        ["GPT-4 Vision model", "Llama Vision model"],
-        index=1  # Default to Llama 2 Vision
+        ["GPT-4 Vision", "LLaVA"],  # Updated model name
+        index=1  # Default to LLaVA
     )
     
     api_key = None
-    if model_choice == "GPT-4 Vision model":
+    if model_choice == "GPT-4 Vision":
         api_key = st.text_input("Enter OpenAI API Key", type="password")
         if not api_key:
             st.warning("Please enter your OpenAI API key to use GPT-4 Vision")
@@ -66,7 +66,7 @@ with st.sidebar:
 # Initialize processors
 pdf_processor = PDFProcessor()
 image_processor = ImageProcessor(
-    model_choice="gpt-4o-mini" if model_choice == "GPT-4 Vision model" else "Llama Vision model",
+    model_choice="gpt-4o-mini" if model_choice == "GPT-4 Vision" else "llava",
     api_key=api_key
 )
 
@@ -88,16 +88,26 @@ if uploaded_file is not None:
                 st.session_state.processed_text = text
                 st.session_state.extracted_images = images
                 
-                # Process images
+                # Process images with progress bar
                 image_contexts = []
+                progress_bar = st.progress(0)
                 for idx, img in enumerate(images):
-                    with st.spinner(f"Processing image {idx+1}..."):
+                    with st.spinner(f"Processing image {idx+1}/{len(images)}..."):
                         context = image_processor.process_image(img)
-                        image_contexts.append(f"Image {idx+1} Context:\n{context}")
+                        if not context.startswith("Error"):
+                            image_contexts.append(f"Image {idx+1} Context:\n{context}")
+                        else:
+                            st.warning(f"Image {idx+1}: {context}")
+                        progress_bar.progress((idx + 1) / len(images))
                 
                 st.session_state.image_contexts = image_contexts
-                st.session_state.rag_engine.process_text(text, image_contexts)
+                
+                # Process with RAG engine
+                with st.spinner("Building knowledge base..."):
+                    st.session_state.rag_engine.process_text(text, image_contexts)
+                
                 st.success("PDF processed successfully!")
+                progress_bar.empty()
     
     # Display processed content
     if st.session_state.processed_text is not None:
@@ -112,7 +122,7 @@ if uploaded_file is not None:
         with col2:
             st.subheader("Extracted Images")
             for idx, img in enumerate(st.session_state.extracted_images):
-                st.image(img, caption=f"Image {idx+1}", use_container_width=True)
+                st.image(img, caption=f"Image {idx+1}", use_column_width=True)
                 if idx < len(st.session_state.image_contexts):
                     with st.expander(f"Image {idx+1} Analysis"):
                         st.markdown(st.session_state.image_contexts[idx])
@@ -145,11 +155,12 @@ if uploaded_file is not None:
 with st.sidebar:
     st.subheader("How to use")
     st.write("""
-    1. Choose your preferred vision model
-    2. If using GPT-4 Vision, enter your API key
-    3. Upload a PDF file
-    4. Click 'Process PDF' to analyze
-    5. Ask questions about the document
+    1. Choose your preferred vision model:
+       - LLaVA (Free, Open Source)
+       - GPT-4 Vision (Requires API key)
+    2. Upload a PDF file
+    3. Click 'Process PDF' to analyze
+    4. Ask questions about the document
     
     The system will understand both text and images!
     """)
