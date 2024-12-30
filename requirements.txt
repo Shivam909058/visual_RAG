@@ -1,0 +1,9 @@
+streamlit
+PyMuPDF
+Pillow
+langchain
+chromadb
+openai
+python-dotenv
+transformers
+torch 
