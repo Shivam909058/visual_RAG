@@ -62,7 +62,7 @@ class ImageProcessor:
             base64_image = self.encode_image_to_base64(image)
             
             response = self.openai_client.chat.completions.create(
-                model="gpt-4-vision-preview",
+                model="gpt-4o-mini",
                 messages=[
                     {
                         "role": "user",
@@ -87,44 +87,34 @@ class ImageProcessor:
     def process_image_llama(self, image):
         """Process image using Llama Vision"""
         try:
-            # Convert image to base64
             img_str = self.encode_image_to_base64(image)
             
-            # Create a detailed prompt for better image analysis
-            prompt = """Please analyze this image in detail and provide:
-1. A description of all visual elements present
-2. Any text content and its meaning
-3. Explanation of diagrams or technical illustrations if present
-4. Relationships between different elements in the image
-5. Any mathematical formulas or technical concepts shown
-6. The main message or purpose of this image
-
-Provide your analysis in a clear, structured format."""
+            # Shorter, more focused prompt for faster processing
+            prompt = """Analyze this image concisely:
+1. Main visual elements and relationships
+2. Key text or diagrams and their significance
+3. Technical concepts 
+Be brief but specific."""
             
-            # Call Ollama with the enhanced prompt
+            # Optimized Ollama settings
             response = self.ollama_client.invoke(
                 prompt,
                 images=[img_str],
                 stream=False,
                 options={
-                    "temperature": 0.1,  # Lower temperature for more focused responses
-                    "num_ctx": 4096,     # Larger context window
-                    "num_predict": 512   # More detailed responses
+                    "temperature": 0.1,
+                    "num_ctx": 2048,     # Reduced context window
+                    "num_predict": 256,   # Shorter responses
+                    "stop": ["##", "```"] # Stop tokens for shorter responses
                 }
             )
             
-            # Check and format response
             if not response or not isinstance(response, str):
                 return "Error: Invalid response from Llama model"
             
-            # Clean up and structure the response
-            cleaned_response = response.strip()
-            if not cleaned_response:
-                return "Error: Empty response from Llama model"
-                
-            return cleaned_response
+            return response.strip()
             
         except Exception as e:
             if "timeout" in str(e).lower():
-                return "Error: Llama model timed out. Please try again."
-            return f"Error processing with Llama: {str(e)}"
+                return "Error: Model timed out. Please try again."
+            return f"Error with Llama: {str(e)}"
